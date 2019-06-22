@@ -3,7 +3,7 @@ This is a fork from [this original repo](https://github.com/MicrosoftCSA/documen
 1. Updated to the latest [API version](https://docs.microsoft.com/en-us/rest/api/cosmos-db/#supported-rest-api-versions) of 2018-12-31.
 2. Focused more on document operations than database and collection operations.
 
-## To install, 
+## To install:
 1. Import ```CosmosDBSQL.postman_collection.json``` to Postman collections.
 2. Import ```CosmosDBSQLEnv.postman_environment.json``` to Postman environment.
 
@@ -13,4 +13,4 @@ This is a fork from [this original repo](https://github.com/MicrosoftCSA/documen
 ![Alt text](/cosmos.GIF?raw=true "Request")
 
 3. Replace request body with your document or query content.
-4. In the response header, you will see ```x-ms-request-charge```, which is the Cosmos DB RU (Request Unit) for the request.
+4. In the response header, you will see ```x-ms-request-charge```, which is the Cosmos DB RU (Request Unit) incurred by the request.
