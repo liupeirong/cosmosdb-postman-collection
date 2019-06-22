@@ -1,0 +1,1635 @@
+{
+	"info": {
+		"_postman_id": "16db3f88-53b2-4640-a9df-d06c000983fc",
+		"name": "CosmosDBSQL",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "List Databases",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "c85dc349-0864-4e26-83c4-2f4a1e07b001",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "7292e9df-7a45-4d04-b863-89f6cb3e66ae",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Database - specify db name in URL",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "256fa283-028b-4988-affd-6f771a6fd6bd",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "e6032981-839f-4c08-8e0e-1efd5659a16a",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get All Collections",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "115ab892-a557-435d-9151-14a00be0c9f8",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "ab73fa57-7f00-4adc-93e6-a3afb4dabfb5",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Collection -  specify db and collection name in url",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "e5e8d568-3917-463a-b0bf-ab9aaa9af442",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "1a5038e3-9052-45e9-9e7c-9d9da8a24f5d",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Document - specify db, collection in url and key in header",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "0ee88775-1eba-4f87-91f3-d2d1de41516f",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"    var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"    resourceId = strippedurl.substring(1,lastPart);\r",
+							"    console.log(resourceId);\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "2bd42534-f79e-44db-8b16-aa4f028e6526",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-documentdb-partitionkey",
+						"value": "[\"mydocpartitionkey\"]",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"id\": \"mydocid\",\r\n    \"foo\": \"bar\"\r\n}"
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol/docs",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol",
+						"docs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Document - specify db, collection, doc  id in url, and partition key in header",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "06904688-db90-4e6a-8eeb-b48d9dd829bb",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "03f07209-c934-47ed-8fc7-2ab786c9239b",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					},
+					{
+						"key": "x-ms-documentdb-partitionkey",
+						"value": "[\"mydocpartitionkey\"]",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol/docs/mydocid",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol",
+						"docs",
+						"mydocid"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update Document - specify db, collection, doc  id in url, and partition key in header",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "77bef87a-cb49-4af2-9828-42c19a8f6e97",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "ea288b01-2356-4dbe-8655-85a9e7815861",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-documentdb-partitionkey",
+						"value": "[\"mydocpartitionkey\"]",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"id\": \"mydocid\",\r\n    \"foo\": \"bar\"\r\n}"
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol/docs/mydocid",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol",
+						"docs",
+						"mydocid"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get all documents",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "4edbe7d4-4065-4df7-a59a-2c2daca32de7",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "661b5647-28e8-41e4-8b2f-48d2613f0620",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol/docs",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol",
+						"docs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Query Collection - specify query in body",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "927d5d92-fb9e-4322-bf4a-ce7aec1bd039",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "03791614-efc9-485d-8ff5-2cb41c123f0f",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					},
+					{
+						"key": "x-ms-documentdb-isquery",
+						"value": "true"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/query+json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{      \r\n    \"query\": \"SELECT c.combos FROM mycol c WHERE c.id = @id\",     \r\n    \"parameters\": [          \r\n        {\"name\": \"@id\", \"value\": \"mydocid\"}         \r\n    ] \r\n}"
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol/docs",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol",
+						"docs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Document",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "a5a15481-ccee-4e04-aec3-d8fd8020d2a3",
+						"exec": [
+							"// store our master key for documentdb\r",
+							"var mastKey = postman.getEnvironmentVariable(\"DocumentDBMasterKey\");\r",
+							"console.log(\"mastKey = \" + mastKey);\r",
+							"\r",
+							"// store our date as RFC1123 format for the request\r",
+							"var today = new Date();\r",
+							"var UTCstring = today.toUTCString();\r",
+							"postman.setEnvironmentVariable(\"RFC1123time\", UTCstring);\r",
+							"\r",
+							"// Grab the request url\r",
+							"var url = request.url.trim(); \r",
+							"console.log(\"request url = \" + url);\r",
+							"\r",
+							"// strip the url of the hostname up and leading slash\r",
+							"var strippedurl = url.replace(new RegExp('^https?://[^/]+/'),'/');\r",
+							"console.log (\"stripped Url = \" + strippedurl);\r",
+							"\r",
+							"// push the parts down into an array so we can determine if the call is on a specific item\r",
+							"// or if it is on a resource (odd would mean a resource, even would mean an item)\r",
+							"var strippedparts = strippedurl.split(\"/\");\r",
+							"var truestrippedcount = (strippedparts.length - 1);\r",
+							"console.log(truestrippedcount);\r",
+							"\r",
+							"// define resourceId/Type now so we can assign based on the amount of levels\r",
+							"var resourceId = \"\";\r",
+							"var resType = \"\";\r",
+							"\r",
+							"// its odd (resource request)\r",
+							"if (truestrippedcount % 2)\r",
+							"{\r",
+							"    console.log(\"odd\");\r",
+							"    // assign resource type to the last part we found.\r",
+							"    resType = strippedparts[truestrippedcount];\r",
+							"    console.log(resType);\r",
+							"    \r",
+							"    if (truestrippedcount > 1)\r",
+							"    {\r",
+							"        // now pull out the resource id by searching for the last slash and substringing to it.\r",
+							"        var lastPart = strippedurl.lastIndexOf(\"/\");\r",
+							"        resourceId = strippedurl.substring(1,lastPart);\r",
+							"        console.log(resourceId);\r",
+							"    }\r",
+							"}\r",
+							"else // its even (item request on resource)\r",
+							"{\r",
+							"    console.log(\"even\");\r",
+							"    // assign resource type to the part before the last we found (last is resource id)\r",
+							"    resType = strippedparts[truestrippedcount - 1];\r",
+							"    console.log(\"resType\");\r",
+							"    // finally remove the leading slash which we used to find the resource if it was\r",
+							"    // only one level deep.\r",
+							"    strippedurl = strippedurl.substring(1);\r",
+							"    console.log(\"strippedurl\");\r",
+							"    // assign our resourceId\r",
+							"    resourceId = strippedurl;\r",
+							"    console.log(\"resourceId\");\r",
+							"}\r",
+							"\r",
+							"// assign our verb\r",
+							"var verb = request.method.toLowerCase();\r",
+							"\r",
+							"// assign our RFC 1123 date\r",
+							"var date = UTCstring.toLowerCase();\r",
+							"\r",
+							"// parse our master key out as base64 encoding\r",
+							"var key = CryptoJS.enc.Base64.parse(mastKey);\r",
+							"console.log(\"key = \" + key);\r",
+							"\r",
+							"// build up the request text for the signature so can sign it along with the key\r",
+							"var text = (verb || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resType || \"\").toLowerCase() + \"\\n\" + \r",
+							"               (resourceId || \"\") + \"\\n\" + \r",
+							"               (date || \"\").toLowerCase() + \"\\n\" + \r",
+							"               \"\" + \"\\n\";\r",
+							"console.log(\"text = \" + text);\r",
+							"\r",
+							"// create the signature from build up request text\r",
+							"var signature = CryptoJS.HmacSHA256(text, key);\r",
+							"console.log(\"sig = \" + signature);\r",
+							"\r",
+							"// back to base 64 bits\r",
+							"var base64Bits = CryptoJS.enc.Base64.stringify(signature);\r",
+							"console.log(\"base64bits = \" + base64Bits);\r",
+							"\r",
+							"// format our authentication token and URI encode it.\r",
+							"var MasterToken = \"master\";\r",
+							"var TokenVersion = \"1.0\";\r",
+							"auth = encodeURIComponent(\"type=\" + MasterToken + \"&ver=\" + TokenVersion + \"&sig=\" + base64Bits);\r",
+							"console.log(\"auth = \" + auth);\r",
+							"\r",
+							"// set our auth token enviornmental variable.\r",
+							"postman.setEnvironmentVariable(\"authToken\", auth);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "f6e9eadd-a63f-4be2-8e44-7c00d4e7ef78",
+						"exec": [
+							"postman.clearEnvironmentVariable(\"RFC1123time\");",
+							"postman.clearEnvironmentVariable(\"masterKey\");",
+							"postman.clearEnvironmentVariable(\"authToken\");",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "x-ms-version",
+						"value": "{{DocumentDBAPIVersion}}"
+					},
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}"
+					},
+					{
+						"key": "x-ms-date",
+						"value": "{{RFC1123time}}"
+					},
+					{
+						"key": "x-ms-documentdb-partitionkey",
+						"value": "[\"mydocpartitionkey\"]",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "https://{{DocumentDBHost}}/dbs/mydb/colls/mycol/docs/mydocid",
+					"protocol": "https",
+					"host": [
+						"{{DocumentDBHost}}"
+					],
+					"path": [
+						"dbs",
+						"mydb",
+						"colls",
+						"mycol",
+						"docs",
+						"mydocid"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
